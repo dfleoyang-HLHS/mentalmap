@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>心智圖</title>
+<title>mentalmap 心智圖</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -19,6 +19,31 @@
     --keyword-border: #d97706;
     --edge: #94a3b8;
     --select: #ef4444;
+    --button-bg: #ffffff;
+    --button-hover: #f3f4f6;
+    --on-accent: #ffffff;
+    --shadow: rgba(0,0,0,.12);
+    --edit-bg: rgba(37,99,235,.06);
+    --status-bg: rgba(255,255,255,.85);
+    --overlay: rgba(15,23,42,.45);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161d; --grid: #1e2530; --panel: #1a2029; --text: #e5e7eb; --muted: #9ca3af;
+      --border: #374151; --accent: #60a5fa; --concept-bg: #1f2733; --concept-border: #60a5fa;
+      --keyword-bg: #3b2f14; --keyword-border: #f59e0b; --edge: #64748b; --select: #f87171;
+      --button-bg: #222a35; --button-hover: #2b3543; --on-accent: #0b1220; --shadow: rgba(0,0,0,.5);
+      --edit-bg: rgba(96,165,250,.12); --status-bg: rgba(26,32,41,.85); --overlay: rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161d; --grid: #1e2530; --panel: #1a2029; --text: #e5e7eb; --muted: #9ca3af;
+    --border: #374151; --accent: #60a5fa; --concept-bg: #1f2733; --concept-border: #60a5fa;
+    --keyword-bg: #3b2f14; --keyword-border: #f59e0b; --edge: #64748b; --select: #f87171;
+    --button-bg: #222a35; --button-hover: #2b3543; --on-accent: #0b1220; --shadow: rgba(0,0,0,.5);
+    --edit-bg: rgba(96,165,250,.12); --status-bg: rgba(26,32,41,.85); --overlay: rgba(0,0,0,.6);
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -32,7 +57,7 @@
   #toolbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 10;
     display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-    padding: 8px 12px;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px));
     background: var(--panel);
     border-bottom: 1px solid var(--border);
   }
@@ -40,10 +65,11 @@
   #toolbar button {
     font: inherit; font-size: 14px;
     padding: 6px 10px; border-radius: 6px;
-    border: 1px solid var(--border); background: #fff; cursor: pointer;
+    border: 1px solid var(--border); background: var(--button-bg); color: var(--text); cursor: pointer;
   }
-  #toolbar button:hover { background: #f3f4f6; }
-  #toolbar button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #toolbar button:hover { background: var(--button-hover); }
+  #toolbar button:focus-visible, .dialog button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #toolbar button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   #toolbar .sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
   #toolbar .hint { color: var(--muted); font-size: 12px; margin-left: auto; }
 
@@ -74,7 +100,7 @@
     border: 2px solid var(--concept-border);
     border-radius: 10px;
     background: var(--concept-bg);
-    box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    box-shadow: 0 1px 3px var(--shadow);
     cursor: move; user-select: none;
     text-align: center; line-height: 1.4;
     word-break: break-word;
@@ -89,21 +115,52 @@
   .node.selected { outline: 3px solid var(--select); outline-offset: 2px; }
   .node.connect-target { outline: 3px dashed var(--accent); outline-offset: 2px; }
   .node .label { outline: none; min-height: 1.4em; }
-  .node .label[contenteditable="true"] { cursor: text; user-select: text; background: rgba(37,99,235,.06); }
+  .node .label[contenteditable="true"] { cursor: text; user-select: text; background: var(--edit-bg); }
   .node .handle {
     position: absolute; right: -8px; top: 50%;
     width: 14px; height: 14px; margin-top: -7px;
-    border-radius: 50%; background: var(--accent); border: 2px solid #fff;
+    border-radius: 50%; background: var(--accent); border: 2px solid var(--panel);
     cursor: crosshair; opacity: 0; transition: opacity .15s;
   }
   .node:hover .handle, .node.selected .handle { opacity: 1; }
 
   #status {
-    position: fixed; left: 12px; bottom: 10px; z-index: 10;
+    position: fixed; left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 10;
     font-size: 12px; color: var(--muted);
-    background: rgba(255,255,255,.85); padding: 4px 8px; border-radius: 6px;
+    background: var(--status-bg); padding: 4px 8px; border-radius: 6px;
   }
   #fileInput { display: none; }
+
+  /* 對話框（取代瀏覽器的 confirm 與下載，在受限環境中也能使用） */
+  .dialog-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: var(--overlay);
+  }
+  .dialog {
+    width: min(560px, 100%); max-height: 90%;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 18px; border-radius: 12px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); box-shadow: 0 10px 30px var(--shadow);
+  }
+  .dialog h2 { margin: 0; font-size: 17px; }
+  .dialog p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .dialog textarea {
+    width: 100%; min-height: 220px; resize: vertical;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+  }
+  .dialog .preview { overflow: auto; border: 1px solid var(--border); border-radius: 8px; min-height: 0; }
+  .dialog .preview img { display: block; max-width: 100%; }
+  .dialog .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .dialog button {
+    font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--button-bg); color: var(--text);
+  }
+  .dialog button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .dialog button.danger { background: var(--select); color: var(--on-accent); border-color: var(--select); }
 
   @media (max-width: 640px) {
     #toolbar .hint { display: none; }
@@ -210,6 +267,44 @@
     applyView();
   }
 
+  // ---- 對話框 ----
+  function openDialog({ title, text, body, buttons }) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'dialog-backdrop';
+    const box = document.createElement('div');
+    box.className = 'dialog';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    const h = document.createElement('h2'); h.textContent = title; box.appendChild(h);
+    if (text) { const p = document.createElement('p'); p.textContent = text; box.appendChild(p); }
+    if (body) box.appendChild(body);
+    const actions = document.createElement('div'); actions.className = 'actions';
+    const close = () => { backdrop.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
+    for (const b of buttons) {
+      const btn = document.createElement('button');
+      btn.textContent = b.label;
+      if (b.kind) btn.className = b.kind;
+      btn.onclick = () => { const keep = b.onClick && b.onClick(btn); if (!keep) close(); };
+      actions.appendChild(btn);
+    }
+    box.appendChild(actions);
+    backdrop.appendChild(box);
+    backdrop.addEventListener('pointerdown', (ev) => { if (ev.target === backdrop) close(); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(backdrop);
+    const focusBtn = actions.querySelector('.primary, .danger') || actions.lastChild;
+    focusBtn.focus();
+    return close;
+  }
+
+  function confirmDialog(title, text, okLabel, onOk) {
+    openDialog({ title, text, buttons: [
+      { label: '取消' },
+      { label: okLabel, kind: 'danger', onClick: () => { onOk(); } }
+    ] });
+  }
+
   // ---- 繪製 ----
   function render() {
     nodesLayer.innerHTML = '';
@@ -308,11 +403,14 @@
     save();
   }
 
-  function deleteSelected() {
+  function deleteSelected(force) {
     if (!selected) return;
     if (selected.type === 'node') {
       const n = findNode(selected.id);
-      if (n && n.root && !confirm('確定要刪除中心主題嗎？')) return;
+      if (n && n.root && !force) {
+        confirmDialog('刪除中心主題？', `「${n.text}」和它的所有連線都會被刪除。`, '刪除', () => deleteSelected(true));
+        return;
+      }
       state.nodes = state.nodes.filter(x => x.id !== selected.id);
       state.edges = state.edges.filter(e => e.from !== selected.id && e.to !== selected.id);
     } else {
@@ -496,7 +594,7 @@
 
   // ---- 鍵盤 ----
   document.addEventListener('keydown', (ev) => {
-    if (isEditing()) return;
+    if (isEditing() || document.querySelector('.dialog-backdrop')) return;
     if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); deleteSelected(); }
     else if (ev.key === 'Tab') { ev.preventDefault(); addChild(); }
     else if (ev.key === 'Enter' || ev.key === 'F2') {
@@ -512,12 +610,13 @@
   document.getElementById('btnKeyword').onclick = () => addAtCenter('keyword');
   document.getElementById('btnChild').onclick = addChild;
   document.getElementById('btnConnect').onclick = () => setConnectMode(!connectMode);
-  document.getElementById('btnDelete').onclick = deleteSelected;
+  document.getElementById('btnDelete').onclick = () => deleteSelected();
   document.getElementById('btnFit').onclick = () => { centerView(); updateStatus(); save(); };
   document.getElementById('btnClear').onclick = () => {
-    if (!confirm('確定要清空整張心智圖嗎？（建議先匯出備份）')) return;
-    state = defaultMap(); selected = null;
-    centerView(); render(); save();
+    confirmDialog('清空整張心智圖？', '所有節點與連線都會被刪除，且無法復原。建議先按「匯出」備份。', '清空', () => {
+      state = defaultMap(); selected = null;
+      centerView(); render(); save();
+    });
   };
 
   function download(filename, blob) {
@@ -530,8 +629,29 @@
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 
   document.getElementById('btnExport').onclick = () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    download(`mentalmap-${stamp()}.json`, blob);
+    const json = JSON.stringify(state, null, 2);
+    const ta = document.createElement('textarea');
+    ta.id = 'exportText';
+    ta.readOnly = true;
+    ta.value = json;
+    openDialog({
+      title: '匯出心智圖',
+      text: '可以複製下方內容存成 .json 檔，或直接下載。之後用「匯入」即可還原。',
+      body: ta,
+      buttons: [
+        { label: '關閉' },
+        { label: '下載檔案', onClick: () => {
+          download(`mentalmap-${stamp()}.json`, new Blob([json], { type: 'application/json' }));
+          return true;
+        } },
+        { label: '複製', kind: 'primary', onClick: (btn) => {
+          const done = () => { btn.textContent = '已複製'; };
+          const fallback = () => { ta.focus(); ta.select(); btn.textContent = '已選取，請按 Ctrl+C'; };
+          try { navigator.clipboard.writeText(json).then(done, fallback); } catch (e) { fallback(); }
+          return true;
+        } }
+      ]
+    });
   };
   const fileInput = document.getElementById('fileInput');
   document.getElementById('btnImport').onclick = () => fileInput.click();
@@ -544,7 +664,7 @@
       state = { nodes: data.nodes, edges: data.edges };
       selected = null;
       centerView(); render(); save();
-    }).catch(err => alert('匯入失敗：' + err.message))
+    }).catch(err => openDialog({ title: '匯入失敗', text: '這個檔案不是心智圖的 JSON 格式（' + err.message + '）。請選擇用「匯出」產生的檔案。', buttons: [{ label: '知道了', kind: 'primary' }] }))
       .finally(() => { fileInput.value = ''; });
   };
 
@@ -594,7 +714,23 @@
       const lh = size * 1.4;
       lines.forEach((t, i) => ctx.fillText(t, n.x, n.y + (i - (lines.length - 1) / 2) * lh, w - 16));
     }
-    cv.toBlob(blob => download(`mentalmap-${stamp()}.png`, blob));
+    cv.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const wrap = document.createElement('div');
+      wrap.className = 'preview';
+      const img = document.createElement('img');
+      img.src = url; img.alt = '心智圖圖片預覽';
+      wrap.appendChild(img);
+      openDialog({
+        title: '存成圖片',
+        text: '若「下載」沒有反應，請在圖片上按右鍵（手機請長按）選擇另存圖片。',
+        body: wrap,
+        buttons: [
+          { label: '關閉', onClick: () => { URL.revokeObjectURL(url); } },
+          { label: '下載', kind: 'primary', onClick: () => { download(`mentalmap-${stamp()}.png`, blob); return true; } }
+        ]
+      });
+    });
   };
 
   window.addEventListener('resize', applyView);
